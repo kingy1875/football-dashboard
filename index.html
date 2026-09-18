@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Football — Fixtures Dashboard</title>
+<style>
+    :root{
+        --bg:#0e1116; --panel:#161b22; --line:#232a33;
+        --ink:#e6edf3; --mut:#8b949e; --mut2:#6e7681;
+        --win:#2ea043; --draw:#d4a017; --loss:#da3633;
+        --acc:#7c5cff; --oddbg:#132a1e; --oddln:#1e4a33; --odd:#3fb950;
+        --gGreen:#2ea043; --gAmber:#d4a017; --gRed:#e5534b; --gDark:#8b1a14;
+    }
+    *{box-sizing:border-box;}
+    body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",Arial,sans-serif;margin:0;padding:0 18px 60px;}
+    .wrap{max-width:1180px;margin:0 auto;}
+    .title{display:flex;align-items:center;gap:10px;font-size:26px;font-weight:800;margin:0;padding-top:22px;}
+    .sub{color:var(--mut);font-size:13px;margin:8px 0 16px;}
+    .tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .tab{background:#1b2129;border:1px solid var(--line);color:var(--ink);border-radius:22px;padding:7px 15px;font-size:13.5px;cursor:pointer;}
+    .tab.active{background:#173a6b;border-color:#1f4e8c;color:#fff;}
+    .src{color:var(--mut);font-size:12.5px;width:100%;margin-top:4px;}
+    .src .dot{color:#d4a017;} .src.live .dot{color:#2ea043;}
+    .sortbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 4px;}
+    .sortbar .lbl{color:var(--mut);font-size:13px;font-weight:600;}
+    .sortbar select{background:#1b2129;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:13.5px;cursor:pointer;}
+    .sortbar .dir{background:#1b2129;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:36px;height:36px;font-size:14px;cursor:pointer;}
+    /* sticky stats toggle */
+    .stickybar{position:sticky;top:0;z-index:60;background:rgba(14,17,22,.95);backdrop-filter:blur(6px);
+               border-bottom:1px solid var(--line);margin:12px -18px 10px;padding:10px 18px;}
+    .stickybar .inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .stickybar .lbl{color:var(--mut);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;}
+    .smode{background:#1b2129;border:1px solid var(--line);color:var(--ink);border-radius:20px;padding:8px 16px;font-size:13.5px;cursor:pointer;font-weight:600;}
+    .smode.active{background:var(--acc);border-color:var(--acc);color:#0e1116;}
+    .legend{color:var(--mut);font-size:12px;margin:10px 0 20px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:11px;font-weight:800;color:#fff;}
+    .b-w{background:var(--win);} .b-d{background:var(--draw);} .b-l{background:var(--loss);}
+    .dia{width:8px;height:8px;transform:rotate(45deg);border-radius:1px;margin:4px auto 0;}
+    .sw{width:14px;height:9px;border-radius:2px;display:inline-block;vertical-align:middle;}
+    .league-head{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;margin:22px 0 14px;}
+    .league-head .bar{width:8px;height:24px;border-radius:4px;background:var(--acc);}
+    .league-head .count{color:var(--mut);font-weight:600;font-size:15px;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+    .card .top{display:flex;justify-content:space-between;color:var(--mut);font-size:12.5px;}
+    .card .sortnote{color:var(--acc);font-weight:700;}
+    .card .ha{display:flex;justify-content:space-between;color:var(--mut2);font-size:11px;letter-spacing:.5px;margin-top:10px;}
+    .teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;margin-top:2px;}
+    .teams .tn{font-size:17px;font-weight:800;line-height:1.15;}
+    .teams .away{text-align:right;}
+    .teams .v{color:var(--mut2);font-size:13px;padding:0 8px;text-align:center;}
+    .pos{font-size:11px;color:var(--mut);margin-top:3px;}
+    .formline{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin-top:8px;}
+    .badges{display:flex;gap:4px;}
+    .badges.right{justify-content:flex-end;}
+    .bcell{display:flex;flex-direction:column;align-items:center;}
+    .ptsmid{text-align:center;font-size:11px;color:var(--mut);line-height:1.5;white-space:nowrap;}
+    .ptsmid .diff{color:#c9d1d9;font-weight:700;}
+    .pts{font-size:11px;color:var(--mut);font-weight:700;}
+    .split{border-top:1px dashed var(--line);margin:14px 0 6px;}
+    .subhead{display:flex;justify-content:space-between;color:var(--mut);font-size:11.5px;margin-bottom:6px;}
+    .subhead .r{text-align:right;}
+    /* stat rows */
+    .stat{display:grid;grid-template-columns:52px 1fr 62px 1fr 52px;align-items:center;gap:6px;margin:6px 0;font-size:12.5px;}
+    .stat .hv{text-align:left;font-weight:700;}
+    .stat .av{text-align:right;font-weight:700;}
+    .stat .lab{text-align:center;color:var(--mut2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;}
+    .track{height:7px;border-radius:4px;background:#20262e;position:relative;overflow:hidden;}
+    .fill{position:absolute;top:0;bottom:0;border-radius:4px;}
+    .fillH{left:0;} .fillA{right:0;}
+    .c-green{background:var(--gGreen);}
+    .c-orange{background:var(--gAmber);}
+    .c-red{background:var(--gRed);}
+    .c-darkred{background:var(--gDark);}
+    /* NEW: expected range block */
+    .rngwrap{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;}
+    .rng{display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:8px;margin:5px 0;font-size:12.5px;}
+    .rng .l{text-align:right;font-weight:700;color:var(--ink);}
+    .rng .c{text-align:center;color:var(--mut2);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;}
+    .rng .r{text-align:left;font-weight:700;color:var(--ink);}
+    /* odds: no headings, smaller boxes */
+    .oddwrap{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;}
+    .odds{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px;}
+    .odd{background:var(--oddbg);border:1px solid var(--oddln);border-radius:6px;padding:4px 3px;text-align:center;}
+    .odd .l{font-size:7.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px;}
+    .odd .v{font-size:12.5px;font-weight:800;color:var(--odd);line-height:1.3;}
+    .foot{color:var(--mut2);font-size:12px;margin-top:26px;text-align:center;}
+    code{background:#1b2129;padding:1px 5px;border-radius:4px;color:#c9d1d9;}
+    @media(max-width:900px){ .grid{grid-template-columns:1fr;} }
+    @media(max-width:560px){
+        body{padding:0 12px 50px;}
+        .title{font-size:20px;padding-top:16px;}
+        .tab{padding:6px 12px;font-size:12.5px;}
+        .stickybar{margin:10px -12px 8px;padding:9px 12px;}
+        .smode{padding:8px 13px;font-size:13px;}
+        .stickybar .lbl{width:100%;margin-bottom:2px;}
+        .sortbar select{flex:1;min-width:0;}
+        .badge{width:24px;height:24px;font-size:12px;}
+        .stat{grid-template-columns:46px 1fr 56px 1fr 46px;gap:5px;font-size:12px;}
+        .rng{grid-template-columns:1fr 78px 1fr;font-size:12px;}
+        .odd .v{font-size:13px;}
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <h1 class="title"><span>&#9917;</span> English Football — Fixtures</h1>
+    <div class="sub">Top 4 divisions &middot; season averages &middot; Bet365 odds &middot; colours = percentile within each league</div>
+    <div class="tabs">
+        <div class="tab active" data-league="all">All</div>
+        <div class="tab" data-league="PL">Premier League</div>
+        <div class="tab" data-league="CH">Championship</div>
+        <div class="tab" data-league="L1">League One</div>
+        <div class="tab" data-league="L2">League Two</div>
+        <div class="src" id="srcTag"><span class="dot">&#9679;</span> <span id="srcTxt">Loading&hellip;</span></div>
+    </div>
+    <div class="sortbar">
+        <span class="lbl">Sort by</span>
+        <select id="sortSel">
+            <option value="kickoff">Kick-off time</option>
+            <option value="overallFormDiff">Overall form difference (pts)</option>
+            <option value="venueFormDiff">Home/Away form difference (pts)</option>
+            <option value="homeAvgG">Home team AVG.G</option>
+            <option value="awayAvgG">Away team AVG.G</option>
+            <option value="sumAvgG">Sum of home + away AVG.G</option>
+        </select>
+        <button class="dir" id="dirBtn" title="Ascending / descending">&#9650;</button>
+    </div>
+</div>
+
+<div class="stickybar">
+  <div class="inner">
+    <span class="lbl">Stats</span>
+    <button class="smode active" data-mode="attacking">Attacking</button>
+    <button class="smode" data-mode="defending">Defending</button>
+    <button class="smode" data-mode="homefor">Home for</button>
+    <button class="smode" data-mode="awayfor">Away for</button>
+  </div>
+</div>
+
+<div class="wrap">
+    <div class="legend">
+        <span class="badge b-w">W</span><span class="badge b-d">D</span><span class="badge b-l">L</span> form
+        &nbsp;&middot;&nbsp; <strong>&#9670;</strong>
+        <span class="dia" style="display:inline-block;background:var(--gGreen)"></span>O2
+        <span class="dia" style="display:inline-block;background:var(--gAmber)"></span>=2
+        <span class="dia" style="display:inline-block;background:var(--gRed)"></span>U2
+        &nbsp;&middot;&nbsp; bars:
+        <span class="sw" style="background:var(--gGreen)"></span>top 10%
+        <span class="sw" style="background:var(--gAmber)"></span>top 34%
+        <span class="sw" style="background:var(--gRed)"></span>top 85%
+        <span class="sw" style="background:var(--gDark)"></span>rest
+    </div>
+    <div id="leagues"></div>
+    <p class="foot">Season averages. Expected range = min/max of the two sides in that match-up, rounded out. P(&ge;1) = <code>1 &minus; POISSON.DIST(0, avg, FALSE)</code>. Odds Bet365 decimal.</p>
+</div>
+
+<!-- =========================================================================
+     PASTE YOUR DATA HERE
+     1. In Excel select your merged fixtures table INCLUDING the header row.
+     2. Copy (Ctrl+C).
+     3. Delete the sample rows below (KEEP nothing) and paste yours.
+     4. Everything must stay between the two backtick ` characters. Save. Reload.
+     Columns are matched BY NAME, so extra/reordered columns are fine.
+     ========================================================================= -->
+<script>
+var RAWDATA = `code	name	home_id	home_name	away_id	away_name	kickoff_BST	odds_home	odds_draw	odds_away	odds_btts_yes	odds_over15	odds_over25	home_form.last5_result	home_form.last4_result	home_form.last3_result	home_form.last2_result	home_form.last_result	home_form.last5_result_home	home_form.last4_result_home	home_form.last3_result_home	home_form.last2_result_home	home_form.last_result_home	home_form.last5_goals	home_form.last4_goals	home_form.last3_goals	home_form.last2_goals	home_form.last_goals	home_form.last5_goals_home	home_form.last4_goals_home	home_form.last3_goals_home	home_form.last2_goals_home	home_form.last_goals_home	away_form.last5_result	away_form.last4_result	away_form.last3_result	away_form.last2_result	away_form.last_result	away_form.last5_result_away	away_form.last4_result_away	away_form.last3_result_away	away_form.last2_result_away	away_form.last_result_away	away_form.last5_goals	away_form.last4_goals	away_form.last3_goals	away_form.last2_goals	away_form.last_goals	away_form.last5_goals_away	away_form.last4_goals_away	away_form.last3_goals_away	away_form.last2_goals_away	away_form.last_goals_away	home_stats.avg_xg	home_stats.avg_xgc	home_stats.avg_goals	home_stats.avg_goals_conc	home_stats.avg_sot	home_stats.avg_sot_conc	home_stats.poisson_G	home_stats.poisson_GC	home_stats.avg_big_chances	home_stats.avg_big_chances_conc	home_stats.avg_shots	home_stats.avg_shots_conc	home_stats.avg_corners	home_stats.avg_corners_conc	away_stats.avg_xg	away_stats.avg_xgc	away_stats.avg_goals	away_stats.avg_goals_conc	away_stats.avg_sot	away_stats.avg_sot_conc	away_stats.poisson_G	away_stats.poisson_GC	away_stats.avg_big_chances	away_stats.avg_big_chances_conc	away_stats.avg_shots	away_stats.avg_shots_conc	away_stats.avg_corners	away_stats.avg_corners_conc	home_pos.position	away_pos.position
+PL	Premier League	tm_5290	Fulham	tm_4643	Manchester United	Sun 20 Sep · 16:30	3.500	3.800	2.000	1.500	1.167	1.571		L	L	L	D				L	L		O2	U2	O2	U2				O2	O2		L	W	D	L				L	D		2	O2	O2	U2				2	O2	1.53	1.88	1.00	1.75	4.00	4.5	63%	83%	1.75	4.5	15	13.5	6.25	3.25	2.07	1.36	1.75	1.75	5.50	4.25	83%	83%	3.25	2.5	21	10.25	5.75	4	18	13
+PL	Premier League	tm_1552	Brighton & Hove Albion	tm_9145	Arsenal	Sat 19 Sep · 15:00	5.000	3.900	1.667	1.700	1.222	1.727		W	L	D	W				W	D		O2	O2	2	O2				O2	2		W	W	W	W				W	W		O2	U2	O2	2				U2	2	2.55	1.76	3.25	1.25	6.00	4.25	96%	71%	4.75	3	19.5	11.75	5.5	4.25	1.71	0.68	2.00	0.25	5.50	2.25	86%	22%	2.5	1.25	13.5	9	4.75	2.75	5	1
+PL	Premier League	tm_0256	Leeds United	tm_3498	Crystal Palace	Sun 20 Sep · 14:00	1.727	3.900	4.750	1.700	1.222	1.727		W	D	D	W				D	W		U2	2	2	O2				2	O2		L	L	W	L				L	W		2	O2	O2	O2				2	O2	1.63	1.35	1.75	0.75	4.00	4.25	83%	53%	3	2.666666667	12	15.25	4.5	5.25	1.30	2.04	1.50	2.75	3.50	6.5	78%	94%	3.5	2.75	10.25	17.75	2.25	5	3	16
+PL	Premier League	tm_3039	Manchester City	tm_2674	Sunderland	Sun 20 Sep · 14:00	1.300	5.500	9.000	1.950	1.167	1.571		W	W	W	W				W	W		O2	O2	U2	U2				O2	U2		L	W	D	L				L	D		O2	U2	2	2				O2	2	1.92	0.92	2.00	0.5	5.25	2.75	86%	39%	3.5	2	13	10.5	6.25	4	1.55	1.46	0.75	1.25	4.00	2.5	53%	71%	3	2.5	12.25	11	3.75	3.25	2	14
+PL	Premier League	tm_0836	Nottingham Forest	tm_2954	Coventry City	Sat 19 Sep · 17:30	1.571	4.000	5.750	1.800	1.250	1.800		L	D	D	W				L	D		U2	O2	U2	O2				U2	U2		L	L	L	L				L	L		O2	U2	U2	O2				O2	U2	1.54	1.03	1.00	1	3.50	3	63%	63%	4	1.666666667	14.5	10.5	2.75	5.25	1.05	1.88	0.00	2.5	3.25	4.75	0%	92%	1.5	2.25	10.25	15.75	4.5	4.25	11	20
+PL	Premier League	tm_7938	Newcastle United	tm_6115	Hull City	Sat 19 Sep · 15:00	1.600	4.333	5.000	1.667	1.200	1.615		D	W	D	L				D	D		O2	2	O2	O2				O2	O2		W	W	D	D				W	D		2	U2	U2	O2				U2	O2	0.97	1.89	1.75	2	3.25	6	83%	86%	1.75	2.5	9.75	19	4.5	5.75	0.98	1.49	1.25	0.5	3.75	4	71%	39%	2.25	1.75	9.75	14.25	2.5	6.5	12	4
+PL	Premier League	tm_1772	Bournemouth	tm_0406	Liverpool	Sun 20 Sep · 14:00	3.200	3.800	2.100	1.444	1.143	1.500		L	D	D	D				D	D		O2	2	O2	O2				2	O2		D	D	W	D				D	W		O2	O2	2	U2				O2	2	1.48	1.33	1.50	1.75	6.00	4.25	78%	83%	3.25	2.5	14.75	10.5	4.5	5	1.68	1.33	1.50	1	5.25	4	78%	63%	2.666666667	3	16	12.25	4.25	4.75	15	8
+PL	Premier League	tm_1662	Brentford	tm_8531	Chelsea	Fri 18 Sep · 20:00	2.550	3.750	2.500	1.400	1.143	1.500		W	D	D	D				W	D		O2	2	2	O2				O2	2		W	W	L	D				W	L		O2	O2	O2	O2				O2	O2	1.81	1.37	1.75	1	4.25	5.25	83%	63%	3.25	2.5	17	13.75	4.5	3.25	1.62	1.54	2.50	2.25	6.00	6.5	92%	89%	3.25	3.75	15	14.75	5.25	5.5	7	6
+PL	Premier League	tm_5130	Tottenham Hotspur	tm_1002	Aston Villa	Sat 19 Sep · 12:30	2.000	3.500	3.600	1.667	1.250	1.800		L	L	D	D				L	D		O2	2	U2	U2				2	U2		L	L	D	L				L	D		O2	U2	U2	O2				O2	U2	0.86	1.66	0.00	1.25	3.00	3.75	0%	71%	1.75	2.5	12.75	15.25	6.75	5.5	0.84	1.92	0.25	1.75	1.50	4.75	22%	83%	1	3.75	8.25	15.25	3.5	3.25	17	19
+PL	Premier League	tm_8091	Everton	tm_9825	Ipswich Town	Sat 19 Sep · 15:00	1.750	3.800	4.500	1.700	1.222	1.727		W	D	D	D				W	D		2	2	O2	U2				2	O2		W	L	L	W				L	W		O2	O2	2	O2				O2	O2	1.27	1.38	1.25	0.75	5.25	3.5	71%	53%	1.75	3	14.75	14	5.25	4.5	1.57	1.69	1.75	2.5	4.75	6.5	83%	92%	3	4	11.25	16.25	3.5	5.5	9	10
+CH	Championship	tm_5188	Norwich City	tm_4830	Bolton Wanderers	Sun 20 Sep · 13:30	1.500	4.500	5.500	1.615	1.167	1.533	W	L	W	W	L			L	W	W	O2	U2	O2	O2	O2			O2	O2	O2	L	L	L	L	W			D	L	L	U2	O2	O2	O2	U2			U2	O2	O2	1.91	1.52	1.86	1.857142857	5.71	4.285714286	84%	84%	3.428571429	2.714285714	15.71428571	13.14285714	4.857142857	5	1.18	1.87	1.00	1.714285714	4.71	6	63%	82%	1.428571429	3.571428571	12.71428571	12.71428571	5.857142857	5	14	20
+CH	Championship	tm_5104	Wolverhampton	tm_8814	West Bromwich Albion	Sun 20 Sep · 12:00	1.800	3.700	4.333	1.800	1.286	1.909	W	W	L	D	W				D	W	O2	O2	O2	O2	U2				O2	O2	L	D	W	W	D			W	L	W	O2	2	U2	U2	2			O2	O2	U2	1.86	1.07	2.33	1.666666667	4.33	3.833333333	90%	81%	2.666666667	1.666666667	16.16666667	11	6	4.166666667	1.17	1.45	1.43	1	4.00	3.571428571	76%	63%	1.714285714	3	10.28571429	11.14285714	4.571428571	5.857142857	7	4
+CH	Championship	tm_0586	Wrexham	tm_4893	Southampton	Sat 19 Sep · 15:00	2.900	3.600	2.300	1.615	1.222	1.727	L	W	D	D	L			D	L	D	O2	O2	U2	2	O2			2	O2	2	W	D	D	W	W			L	D	D	O2	2	2	O2	O2			O2	2	2	1.16	1.23	1.00	1.571428571	3.43	4.142857143	63%	79%	1.714285714	2.571428571	11.28571429	11.14285714	5.142857143	4.428571429	1.80	1.48	2.57	1.142857143	4.57	3.857142857	92%	68%	3.142857143	2.142857143	15.85714286	16	6	4.571428571	19	9
+CH	Championship	tm_2949	Queens Park Rangers	tm_2504	Preston North End	Sat 19 Sep · 15:00	1.727	3.750	4.750	1.727	1.250	1.800	W	W	L	D	D			D	W	L	O2	O2	U2	U2	2			U2	O2	U2	L	L	W	L	L			L	L	L	U2	O2	O2	O2	U2			O2	U2	O2	1.44	1.16	1.14	0.714285714	5.14	3.142857143	68%	51%	2.142857143	2.142857143	15	11	6.428571429	4	1.47	1.19	0.86	1.857142857	3.14	4.714285714	58%	84%	2.285714286	2	12.85714286	13.42857143	5.571428571	4.857142857	5	23
+CH	Championship	tm_9756	Portsmouth	tm_6917	Blackburn Rovers	Sat 19 Sep · 15:00	2.150	3.500	3.300	1.800	1.333	2.100	W	L	L	W	D			L	L	W	O2	O2	2	2	U2			O2	2	2	L	D	L	L	W			D	D	L	O2	U2	O2	O2	O2			O2	U2	O2	1.34	1.29	1.17	1.333333333	4.17	4.333333333	69%	74%	1.833333333	2.333333333	14.83333333	11.83333333	6.666666667	5	0.98	1.53	1.43	1.428571429	4.00	3.142857143	76%	76%	1.833333333	2.166666667	12.14285714	15.42857143	5.857142857	4.428571429	18	16
+CH	Championship	tm_9667	Lincoln City	tm_0016	Swansea City	Sat 19 Sep · 15:00	2.875	3.300	2.450	1.667	1.286	1.909	W	D	D	W	W			L	D	D	U2	U2	2	U2	U2			O2	U2	2	W	W	D	L	W			W	W	L	O2	2	U2	O2	O2			O2	O2	O2	1.30	1.21	0.86	0.857142857	2.86	4.714285714	58%	58%	1.666666667	1.666666667	12.57142857	15.71428571	4.428571429	9.142857143	1.64	1.08	1.57	0.714285714	5.00	2.571428571	79%	51%	2.714285714	2	12.28571429	11	4.714285714	4.571428571	8	2
+CH	Championship	tm_6573	Burnley	tm_3759	Derby County	Sat 19 Sep · 15:00	1.750	3.700	4.500	1.727	1.250	1.800	L	D	L	D	L			D	D	L	O2	2	O2	2	O2			O2	2	O2	L	W	L	L	L			L	W	L	O2	2	O2	U2	O2			O2	2	O2	1.29	1.65	1.14	2.285714286	4.00	4.571428571	68%	90%	2.428571429	3.428571429	14.42857143	13.57142857	5	4	0.91	2.02	0.86	1.857142857	3.29	6.142857143	58%	84%	1.428571429	2.857142857	11.57142857	16.57142857	6.428571429	5.857142857	24	22
+CH	Championship	tm_7218	Birmingham City	tm_6387	Middlesbrough	Sat 19 Sep · 15:00	2.800	3.600	2.350	1.533	1.200	1.667	W	D	D	L	W			D	D	D	O2	2	O2	O2	O2			O2	2	O2	W	D	W	W	D			L	D	W	O2	2	U2	O2	O2			O2	2	U2	1.73	1.25	1.43	1.285714286	4.14	4.142857143	76%	72%	3.142857143	2.428571429	13	11.71428571	6.142857143	4.714285714	1.92	1.12	2.00	1.428571429	5.29	4	86%	76%	4.142857143	2	17.85714286	11.28571429	6.142857143	5.142857143	10	3
+CH	Championship	tm_7348	Stoke City	tm_4513	Sheffield United	Sat 19 Sep · 12:30	2.350	3.400	2.900	1.667	1.286	1.909	L	W	W	D	W			L	W	W	O2	U2	O2	2	O2			O2	U2	O2	D	W	L	W	L			D	D	W	O2	O2	O2	O2	U2			U2	O2	O2	1.05	1.66	1.57	1.571428571	3.86	4.857142857	79%	79%	1.285714286	2.857142857	12	14.71428571	4	5.142857143	1.05	1.67	1.14	1.285714286	3.14	5	68%	72%	1.714285714	2.285714286	8.285714286	17.14285714	3.142857143	7.428571429	12	15
+CH	Championship	tm_4023	Millwall	tm_3809	West Ham United	Sat 19 Sep · 12:30	4.100	3.900	1.800	1.571	1.167	1.615	L	L	W	L	D			W	L	W	O2	O2	O2	O2	O2			O2	O2	O2	D	W	W	W	W			D	D	W	2	O2	O2	O2	O2			O2	2	O2	1.95	1.42	1.86	1.857142857	3.71	3.857142857	84%	84%	3.285714286	2.142857143	14.42857143	14.14285714	4.571428571	6.857142857	2.30	1.09	2.86	1.285714286	5.86	3.714285714	94%	72%	5.166666667	1.166666667	15.85714286	12	6	5	11	1
+CH	Championship	tm_2814	Cardiff City	tm_3169	Charlton Athletic	Sat 19 Sep · 12:30	1.800	3.800	4.100	1.615	1.200	1.667	D	L	L	D	L			D	D	D	O2	O2	2	2	U2			2	O2	2	W	D	L	D	D			W	D	L	U2	2	O2	U2	U2			O2	2	O2	1.78	1.44	1.00	1.571428571	6.43	5.285714286	63%	79%	2.428571429	2.428571429	17.57142857	13.28571429	8.142857143	4.714285714	0.66	1.34	0.86	1	2.57	4.285714286	58%	63%	0.857142857	1.285714286	10.14285714	15.42857143	4.857142857	6.428571429	21	6
+CH	Championship	tm_8651	Bristol City	tm_0196	Watford	Fri 18 Sep · 20:00	1.700	3.900	4.500	1.667	1.222	1.727	W	W	W	L	L			L	W	L	O2	O2	O2	O2	U2			2	O2	U2	D	L	L	W	L			D	L	L	2	2	U2	O2	O2			2	2	U2	1.31	1.59	1.43	1.714285714	4.29	2.857142857	76%	82%	2.428571429	2.428571429	13.85714286	13	5.714285714	5.571428571	1.00	1.76	1.00	1.285714286	3.71	4.285714286	63%	72%	2	3.166666667	11.85714286	15	3.428571429	7.285714286	13	17
+L1	League One	tm_1994	Bromley	tm_7058	Huddersfield Town	Sat 19 Sep · 15:00	5.500	3.900	1.571	1.750	1.222	1.727	D	L	L	L	D			D	L	L	2	O2	O2	2	O2			2	O2	2	D	W	W	D	D			D	W	D	2	O2	O2	2	U2			2	O2	U2	0.92	1.77	1.00	2.833333333	3.33	8	63%	94%	2	3	9.833333333	18	3.166666667	7	1.88	1.02	1.67	0.666666667	5.83	2.333333333	81%	49%	4.666666667	1	15.83333333	9.833333333	5.166666667	3.333333333	22	2
+L1	League One	tm_9905	Luton Town	tm_9715	Bradford City	Sat 19 Sep · 15:00	2.050	3.300	3.500	1.700	1.250	1.900	D	L	W	D	L			D	W	D	O2	O2	2	2	O2			O2	2	2	W	L	L	W	W			W	L	W	U2	2	O2	U2	U2			U2	2	U2	1.55	1.10	2.00	2.166666667	4.50	3.833333333	86%	89%	2.333333333	1.666666667	13	11.83333333	5	4	1.12	0.84	1.00	0.666666667	4.00	2.166666667	63%	49%	2	1	11.33333333	9.5	7	5	12	3
+L1	League One	tm_4558	Oxford United	tm_5960	Cambridge United	Sat 19 Sep · 15:00	2.100	3.400	3.300	1.750	1.286	1.950	D	W	L	W	W				D	W	O2	O2	O2	O2	O2				O2	O2	D	L	W	D	W			D	W	D	2	O2	O2	O2	O2			2	O2	O2	1.39	1.58	2.40	1.2	4.40	5.4	91%	70%	2	3.6	11.4	17	4.2	7	1.00	1.73	1.83	1.5	4.33	3.833333333	84%	78%	1.666666667	3	11	14	5.666666667	4.5	6	4
+L1	League One	tm_3489	Blackpool	tm_2124	Plymouth Argyle	Sat 19 Sep · 15:00	2.625	3.400	2.500	1.533	1.182	1.650	W	W	L	L	D			D	W	D	O2	O2	O2	O2	O2			2	O2	O2	D	W	L	W	W			D	L	W	2	2	2	O2	O2			2	2	O2	1.72	2.14	1.83	1.5	5.00	6.5	84%	78%	2.833333333	3.833333333	15.16666667	18.66666667	4.833333333	8	1.28	1.60	1.67	1.333333333	4.50	2.833333333	81%	74%	1.833333333	1.833333333	13	12.83333333	5.666666667	5.666666667	10	7
+L1	League One	tm_9685	Sheffield Wednesday	tm_1332	Stockport County	Sat 19 Sep · 15:00	3.000	3.500	2.200	1.533	1.182	1.650	L	W	W	W	D			L	W	D	U2	O2	O2	O2	U2			U2	O2	U2	L	W	L	W	L			W	L	W	O2	O2	2	O2	O2			O2	2	O2	2.12	1.38	2.17	1	6.33	3.333333333	89%	63%	2.5	2	16.33333333	12.33333333	7.166666667	5.666666667	1.87	1.22	2.67	1.666666667	5.83	3.833333333	93%	81%	2.833333333	2.833333333	16.5	9.5	7.333333333	3.5	1	8
+L1	League One	tm_5768	Leyton Orient	tm_5749	Stevenage	Sat 19 Sep · 15:00	2.250	3.300	3.100	1.909	1.364	2.150	W	L	W	D	L			L	L	L	2	O2	O2	2	O2			O2	O2	O2	L	D	D	W	W			D	D	W	O2	O2	U2	O2	O2			2	U2	O2	1.12	1.68	2.00	1.5	4.50	5	86%	78%	2.333333333	2.166666667	11	15.33333333	4	6.333333333	0.94	1.07	1.83	1.166666667	3.83	2.833333333	84%	69%	1.833333333	1.5	9.666666667	11.66666667	3.833333333	5.166666667	15	9
+L1	League One	tm_5840	Barnsley	tm_2064	Leicester City	Sat 19 Sep · 12:30	3.300	3.750	2.000	1.444	1.125	1.475	D	W	W	L	L			L	W	L	U2	O2	O2	O2	O2			U2	O2	O2	L	D	W	L	W			D	D	W	O2	U2	2	O2	O2			2	U2	O2	1.37	1.32	1.00	1.833333333	4.33	3.666666667	63%	84%	1.833333333	3.5	17.83333333	11	8.833333333	3.5	1.21	1.51	1.33	1.666666667	4.50	4	74%	81%	2	2.5	14.83333333	13.16666667	5.833333333	5.333333333	18	13
+L1	League One	tm_8941	Reading	tm_6527	Notts County	Sat 19 Sep · 15:00	1.800	3.700	4.000	1.750	1.222	1.800	L	D	W	W	L			L	W	W	O2	U2	O2	O2	O2			O2	O2	O2	D	W	D	D	L			D	D	D	O2	O2	2	2	U2			O2	2	2	2.05	0.91	2.40	1.4	5.00	3.6	91%	75%	4.4	1.2	17.4	9.2	5.2	4.2	1.33	0.98	1.17	1.166666667	3.50	3.166666667	69%	69%	2.5	1.833333333	12.33333333	11.16666667	5	5.166666667	14	16
+L1	League One	tm_0830	Burton Albion	tm_1882	Mansfield Town	Sat 19 Sep · 12:30	2.300	3.300	2.875	1.700	1.250	1.850	W	L	W	D	L			D	W	D	O2	O2	O2	O2	O2			2	O2	O2	L	W	L	L	D			L	L	L	O2	O2	O2	U2	U2			O2	O2	U2	0.91	1.25	1.67	1.666666667	3.17	4.333333333	81%	81%	1	2.166666667	9.5	13	2.833333333	4.666666667	1.10	1.53	1.33	1.833333333	3.67	4.833333333	74%	84%	1.5	3	12.83333333	14	3.5	4.833333333	11	17
+L1	League One	tm_7598	Wigan Athletic	tm_9495	Wycombe Wanderers	Sat 19 Sep · 15:00	2.450	3.300	2.700	1.571	1.222	1.727	L	L	W	L	D			L	W	L	2	U2	O2	O2	U2			2	O2	O2	D	L	L	D	W			D	L	W	2	O2	O2	O2	O2			2	O2	O2	1.94	1.53	0.83	1.833333333	3.33	4.333333333	57%	84%	3.333333333	2	15.16666667	14.16666667	6	5.666666667	1.25	1.57	1.67	2.333333333	5.67	5.5	81%	90%	1.5	2	11.5	15.16666667	5.666666667	5.5	23	20
+L1	League One	tm_0976	Peterborough United	tm_0872	Doncaster Rovers	Sat 19 Sep · 15:00	2.375	3.600	2.700	1.500	1.167	1.571	W	L	D	L	D			W	D	L	O2	O2	U2	O2	2			O2	U2	O2	D	D	D	L	L			L	D	L	U2	O2	2	O2	U2			O2	O2	U2	1.46	1.36	0.67	1.666666667	3.17	5.166666667	49%	81%	1.5	2.166666667	13.83333333	13.66666667	5	5.166666667	1.40	1.05	1.00	1.5	4.17	4.166666667	63%	78%	2.333333333	1.333333333	14.33333333	13.66666667	5.166666667	5.833333333	21	24
+L2	League Two	tm_1992	Gillingham	tm_6637	Bristol Rovers	Sat 19 Sep · 15:00	3.800	3.400	1.950	1.727	1.250	1.800	D	D	D	W	W			L	D	W	U2	2	2	O2	2			O2	2	2	W	W	W	W	L			L	W	L	O2	2	2	U2	2			O2	2	2	1.12	1.69	1.33	1	4.17	3.833333333	74%	63%	1.8	1.6	11.66666667	14.16666667	4.166666667	7	2.18	1.18	2.00	1.333333333	5.17	2.5	86%	74%	2	1.833333333	17.5	10	7	4	11	2
+L2	League Two	tm_8701	Chesterfield	tm_5570	York City	Sat 19 Sep · 15:00	2.450	3.300	2.750	1.533	1.200	1.667	W	L	D	D	W			L	D	D	U2	O2	2	O2	O2			U2	2	O2	D	W	L	D	W			D	L	D	2	O2	O2	2	O2			2	O2	2	2.15	1.92	1.33	1.333333333	5.00	4.5	74%	74%	2.4	2.8	14.66666667	12.5	3.666666667	3.166666667	2.36	1.46	2.17	1.333333333	6.33	3.666666667	89%	74%	3	1.333333333	18.5	11.33333333	7	4.333333333	12	3
+L2	League Two	tm_6047	Colchester United	tm_7608	Cheltenham Town	Sat 19 Sep · 15:00	1.900	3.500	3.800	1.667	1.222	1.800	W	W	L	L	D			W	W	D	O2	U2	2	O2	2			O2	U2	2	L	D	W	D	W			L	D	W	O2	O2	O2	O2	O2			O2	O2	O2	1.54	1.85	1.17	1.5	4.50	5.333333333	69%	78%	1.833333333	2.166666667	13.66666667	14	4.333333333	4	1.30	1.99	2.17	1.666666667	4.50	4.5	89%	81%	1.833333333	2	9.833333333	14.66666667	4	6	13	4
+L2	League Two	tm_3319	Barnet	tm_735662	Fleetwood Town	Sat 19 Sep · 15:00	1.700	3.800	4.500	1.667	1.200	1.667	W	D	D	D	W			W	D	W	O2	O2	2	O2	O2			O2	O2	O2	D	D	D	W	D			W	D	D	U2	O2	2	2	2			U2	O2	2	2.01	1.63	2.33	1.5	4.67	3.833333333	90%	78%	3	2.166666667	16.16666667	10.83333333	7	4.166666667	1.47	1.51	1.17	0.666666667	3.33	2.833333333	69%	49%	1.5	2.166666667	13.66666667	12.83333333	4.833333333	5.166666667	1	7
+L2	League Two	tm_807442	Salford City	tm_5450	Swindon Town	Sat 19 Sep · 15:00	1.571	4.100	5.250	1.615	1.167	1.571	L	L	W	W	D			L	W	W	U2	U2	O2	U2	O2			U2	O2	U2	W	L	W	W	L			D	L	L	O2	O2	O2	O2	O2			U2	O2	O2	1.63	1.76	1.17	1.5	3.50	4.333333333	69%	78%	2.2	1.6	14.5	13.33333333	5.333333333	3.666666667	1.10	1.97	1.33	1.666666667	3.33	5.833333333	74%	81%	1.8	2.6	7.833333333	16.16666667	3.666666667	7.5	15	9
+L2	League Two	tm_6189	Exeter City	tm_2784	Tranmere Rovers	Sat 19 Sep · 15:00	2.200	3.400	3.200	1.800	1.300	2.000	W	L	D	D	L			W	D	D	2	O2	2	U2	U2			2	2	U2	D	D	D	W	L			D	D	L	2	O2	O2	2	2			2	O2	2	1.38	1.38	0.67	0.833333333	2.83	4	49%	57%	1.666666667	1.5	11.16666667	13	4.333333333	5	1.37	1.90	1.50	1.166666667	4.00	4.5	78%	69%	1.666666667	2.333333333	10.66666667	13.5	3.5	5.333333333	20	10
+L2	League Two	tm_5782	Rochdale	tm_4203	Oldham Athletic	Sat 19 Sep · 12:30	3.800	3.400	1.909	1.667	1.250	1.800	L	L	W	L	D			L	W	L	O2	U2	O2	O2	U2			O2	O2	O2	L	W	D	L	L			L	D	L	O2	O2	2	2	O2			O2	2	2	0.95	1.92	0.83	1.666666667	2.50	5.166666667	57%	81%	1	2.666666667	7.666666667	15.16666667	4.166666667	5.5	1.72	1.72	1.33	1.166666667	4.83	3.333333333	74%	69%	2.833333333	1.5	14.16666667	11.83333333	5.333333333	5.166666667	24	14
+L2	League Two	tm_3279	Northampton Town	tm_5720	Rotherham United	Sat 19 Sep · 15:00	2.300	3.400	2.875	1.833	1.333	2.075	L	D	D	W	L			D	D	W	U2	2	2	U2	2			U2	2	U2	D	W	D	L	D			L	D	L	2	O2	O2	U2	O2			O2	O2	U2	0.78	1.13	0.50	0.833333333	3.67	2.833333333	39%	57%	0.5	1.25	9	9.666666667	5.166666667	2.833333333	2.02	1.48	1.50	1.666666667	4.17	4.166666667	78%	81%	2	2	13.83333333	10.66666667	3.833333333	4.833333333	17	16
+L2	League Two	tm_7428	Crewe Alexandra	tm_9606	Shrewsbury Town	Sat 19 Sep · 15:00	1.950	3.400	3.900	1.833	1.300	2.000	W	D	D	D	D			W	D	D	U2	U2	O2	2	2			U2	O2	2	L	W	L	L	W			L	L	L	O2	U2	O2	2	2			2	O2	2	1.56	1.83	1.00	0.666666667	3.67	4.666666667	63%	49%	1.5	1.5	14	15.33333333	6	4.5	1.46	0.90	0.67	1.666666667	3.00	3.166666667	49%	81%	1.5	1.166666667	11.83333333	9.833333333	4.166666667	4	8	18
+L2	League Two	tm_3664	Accrington Stanley	tm_7768	Newport County	Sat 19 Sep · 15:00	2.050	3.300	3.500	1.667	1.250	1.900	L	L	D	W	L			D	D	W	2	O2	O2	O2	O2			O2	O2	O2	L	D	L	L	D			L	L	L	O2	O2	O2	U2	2			O2	O2	U2	1.97	1.83	1.67	2.166666667	5.00	5.333333333	81%	89%	2.666666667	3.833333333	14.33333333	15.16666667	3.5	5.833333333	0.93	1.64	1.67	1.833333333	3.17	4.666666667	81%	84%	2	1.8	9.166666667	16.66666667	3.833333333	6.333333333	21	19
+L2	League Two	tm_6267	Walsall	tm_4153	Port Vale	Sat 19 Sep · 12:30	2.450	3.250	2.800	1.727	1.286	1.950	D	W	D	D	D			D	W	D	U2	O2	O2	U2	U2			U2	O2	U2	D	D	L	L	W			L	L	L	2	U2	O2	U2	U2			2	O2	U2	2.50	1.88	1.33	0.666666667	4.17	3.833333333	74%	49%	2.5	1.833333333	15.83333333	15.66666667	6.666666667	5.666666667	1.32	1.01	0.50	1.166666667	3.17	3	39%	69%	1.4	1.6	11.33333333	10.5	4.833333333	4.166666667	5	22
+L2	League Two	tm_8321	Grimsby Town	tm_41151	Crawley Town	Sat 19 Sep · 15:00	1.480	4.333	6.250	1.667	1.143	1.500	D	D	D	D	W			W	D	W	U2	O2	O2	O2	2			U2	O2	2	W	L	D	L	L			W	D	L	O2	2	2	O2	O2			O2	2	O2	2.02	1.21	1.50	1	4.17	3	78%	63%	3.5	2.166666667	14.66666667	9.666666667	7.166666667	4.833333333	1.74	1.95	1.00	1.833333333	3.67	3.666666667	63%	84%	1.666666667	2.666666667	14	13.16666667	4.166666667	4.666666667	6	23
+
+`;
+</script>
+<!-- ===================== END OF DATA ===================== -->
+
+<script>
+/* ---------- parse ---------- */
+function num(v){ if(v==null){return null;} var s=(""+v).trim(); if(s===""){return null;} if(s.slice(-1)==="%"){s=s.slice(0,-1);} var n=Number(s); return isNaN(n)?null:n; }
+function parseTSV(t){
+  var lines=(""+t).replace(/^\uFEFF/,"").split(/\r?\n/).filter(function(l){return l.trim()!=="";});
+  if(lines.length<2) return [];
+  var H=lines[0].split("\t").map(function(x){return x.trim();});
+  var out=[];
+  for(var i=1;i<lines.length;i++){
+    var c=lines[i].split("\t"); var o={};
+    for(var j=0;j<H.length;j++){ o[H[j]]=(c[j]!==undefined?(""+c[j]).trim():""); }
+    out.push(o);
+  }
+  return out;
+}
+function farr(r,base,suf){
+  var ks=["last5","last4","last3","last2","last"], form=[], goals=[];
+  for(var i=0;i<ks.length;i++){ form.push(r[base+"."+ks[i]+"_result"+suf]||""); goals.push(r[base+"."+ks[i]+"_goals"+suf]||""); }
+  return {form:form, goals:goals};
+}
+function reshape(r){
+  var ho=farr(r,"home_form",""), hh=farr(r,"home_form","_home");
+  var ao=farr(r,"away_form",""), aa=farr(r,"away_form","_away");
+  return {
+    leagueCode:r["code"], league:r["name"], date:r["kickoff_BST"], status:"Upcoming",
+    home:{ name:r["home_name"], pos:num(r["home_pos.position"]),
+           form:ho.form, goals:ho.goals, homeForm:hh.form, homeGoals:hh.goals,
+           avgG:num(r["home_stats.avg_goals"]), xg:num(r["home_stats.avg_xg"]),
+           sot:num(r["home_stats.avg_sot"]), shots:num(r["home_stats.avg_shots"]),
+           bc:num(r["home_stats.avg_big_chances"]), corners:num(r["home_stats.avg_corners"]),
+           avgGC:num(r["home_stats.avg_goals_conc"]), xgc:num(r["home_stats.avg_xgc"]),
+           sotc:num(r["home_stats.avg_sot_conc"]), shotsC:num(r["home_stats.avg_shots_conc"]),
+           bcC:num(r["home_stats.avg_big_chances_conc"]), cornersC:num(r["home_stats.avg_corners_conc"]) },
+    away:{ name:r["away_name"], pos:num(r["away_pos.position"]),
+           form:ao.form, goals:ao.goals, awayForm:aa.form, awayGoals:aa.goals,
+           avgG:num(r["away_stats.avg_goals"]), xg:num(r["away_stats.avg_xg"]),
+           sot:num(r["away_stats.avg_sot"]), shots:num(r["away_stats.avg_shots"]),
+           bc:num(r["away_stats.avg_big_chances"]), corners:num(r["away_stats.avg_corners"]),
+           avgGC:num(r["away_stats.avg_goals_conc"]), xgc:num(r["away_stats.avg_xgc"]),
+           sotc:num(r["away_stats.avg_sot_conc"]), shotsC:num(r["away_stats.avg_shots_conc"]),
+           bcC:num(r["away_stats.avg_big_chances_conc"]), cornersC:num(r["away_stats.avg_corners_conc"]) },
+    bet365:{ homeWin:num(r["odds_home"]), draw:num(r["odds_draw"]), awayWin:num(r["odds_away"]),
+             btts:num(r["odds_btts_yes"]), over15:num(r["odds_over15"]), over25:num(r["odds_over25"]) }
+  };
+}
+var LEAGUE_NAMES={PL:"Premier League",CH:"Championship",L1:"League One",L2:"League Two"};
+var LEAGUE_ORDER=["PL","CH","L1","L2"];
+var fixtures=[];
+try{ fixtures=parseTSV(RAWDATA).map(reshape); }catch(e){ console.error(e); }
+
+/* ---------- helpers ---------- */
+var PTS={W:3,D:1,L:0};
+function points(a){a=a||[];var s=0;for(var i=0;i<a.length;i++){s+=(PTS[a[i]]||0);}return s;}
+function poisson1(m){return (m==null||isNaN(m))?null:1-Math.exp(-m);}
+function dp2(n){return (n==null||isNaN(n))?"\u2013":Number(n).toFixed(2);}
+function pctv(n){return (n==null||isNaN(n))?"\u2013":(n*100).toFixed(1)+"%";}
+function ord(n){if(typeof n!=="number"||isNaN(n))return (n==null?"\u2013":n);var s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+function diaColour(g){return g==="O2"?"var(--gGreen)":g==="2"?"var(--gAmber)":g==="U2"?"var(--gRed)":"#2b3646";}
+function bcell(r,g){var rr=r||"\u2013";return '<div class="bcell"><span class="badge b-'+(String(rr).toLowerCase())+'">'+rr+'</span><span class="dia" style="background:'+diaColour(g)+'"></span></div>';}
+function formRow(a,g,right){a=a||[];g=g||[];var h='';for(var i=0;i<a.length;i++){h+=bcell(a[i],g[i]);}return '<div class="badges '+(right?"right":"")+'">'+h+'</div>';}
+function diffTxt(h,a){var d=h-a;return (d>0?"+":"")+d+" diff.";}
+
+/* ---------- metrics + per-league percentile pools ---------- */
+var METRICS=[
+  {label:"AVG.G",   atk:"avgG",    def:"avgGC",    fmt:"2"},
+  {label:"XG",      atk:"xg",      def:"xgc",      fmt:"2"},
+  {label:"P(&ge;1)",atk:"pG",      def:"pGC",      fmt:"pct"},
+  {label:"SOT",     atk:"sot",     def:"sotc",     fmt:"2"},
+  {label:"SHOTS",   atk:"shots",   def:"shotsC",   fmt:"2"},
+  {label:"BC",      atk:"bc",      def:"bcC",      fmt:"2"},
+  {label:"CORNERS", atk:"corners", def:"cornersC", fmt:"2"}
+];
+/* ranges shown between stats and odds */
+var RANGES=[
+  {label:"GOALS",   atk:"avgG",    def:"avgGC"},
+  {label:"SOT",     atk:"sot",     def:"sotc"},
+  {label:"SHOTS",   atk:"shots",   def:"shotsC"},
+  {label:"CORNERS", atk:"corners", def:"cornersC"}
+];
+var STAT_MODE="attacking";
+var IDX={};   /* IDX[leagueCode][key] = {sorted, max} */
+function buildIndex(){
+  for(var i=0;i<fixtures.length;i++){ var f=fixtures[i];
+    f.home.pG=poisson1(f.home.avgG); f.home.pGC=poisson1(f.home.avgGC);
+    f.away.pG=poisson1(f.away.avgG); f.away.pGC=poisson1(f.away.avgGC); }
+  IDX={};
+  for(var m=0;m<METRICS.length;m++){ var keys=[METRICS[m].atk,METRICS[m].def];
+    for(var kk=0;kk<2;kk++){ var key=keys[kk];
+      for(var t=0;t<fixtures.length;t++){
+        var lc=fixtures[t].leagueCode;
+        IDX[lc]=IDX[lc]||{}; IDX[lc][key]=IDX[lc][key]||{sorted:[],max:1};
+        var hv=fixtures[t].home[key], av=fixtures[t].away[key];
+        if(hv!=null&&!isNaN(hv)) IDX[lc][key].sorted.push(hv);
+        if(av!=null&&!isNaN(av)) IDX[lc][key].sorted.push(av);
+      } } }
+  for(var lc2 in IDX){ for(var k2 in IDX[lc2]){
+    var a=IDX[lc2][k2].sorted; a.sort(function(x,y){return x-y;});
+    IDX[lc2][k2].max = a.length? a[a.length-1] : 1; } }
+}
+function quantile(s,q){ if(!s.length) return 0; var p=(s.length-1)*q, b=Math.floor(p), r=p-b;
+  return (s[b+1]!==undefined)? s[b]+r*(s[b+1]-s[b]) : s[b]; }
+function colourFor(lc,v,key,higherBetter){
+  var e=(IDX[lc]||{})[key]; var s=e?e.sorted:[];
+  if(v==null||isNaN(v)||!s.length) return "darkred";
+  if(higherBetter){
+    if(v>=quantile(s,0.90)) return "green";
+    if(v>=quantile(s,0.66)) return "orange";
+    if(v>=quantile(s,0.15)) return "red";
+    return "darkred";
+  } else {
+    if(v<=quantile(s,0.10)) return "green";
+    if(v<=quantile(s,0.34)) return "orange";
+    if(v<=quantile(s,0.85)) return "red";
+    return "darkred";
+  }
+}
+function sideType(mode,side){
+  if(mode==="attacking") return "atk";
+  if(mode==="defending") return "def";
+  if(mode==="homefor")   return side==="home"?"atk":"def";
+  if(mode==="awayfor")   return side==="home"?"def":"atk";
+  return "atk";
+}
+function fmtVal(v,fmt){ if(v==null||isNaN(v)) return "\u2013"; return fmt==="pct"?pctv(v):dp2(v); }
+function statBar(side,w,colour){ var x=Math.max(0,Math.min(100,w));
+  return '<div class="track"><div class="fill fill'+side+' c-'+colour+'" style="width:'+x+'%"></div></div>'; }
+function statsBlock(g){
+  var lc=g.leagueCode, out="";
+  for(var m=0;m<METRICS.length;m++){ var M=METRICS[m];
+    var ht=sideType(STAT_MODE,"home"), at=sideType(STAT_MODE,"away");
+    var hk=M[ht], ak=M[at];
+    var hv=g.home[hk], av=g.away[ak];
+    var hCol=colourFor(lc,hv,hk,ht==="atk"), aCol=colourFor(lc,av,ak,at==="atk");
+    var hMax=((IDX[lc]||{})[hk]||{}).max||1, aMax=((IDX[lc]||{})[ak]||{}).max||1;
+    out+='<div class="stat"><div class="hv">'+fmtVal(hv,M.fmt)+'</div>'
+       + statBar("H",(Number(hv)||0)/hMax*100,hCol)
+       + '<div class="lab">'+M.label+'</div>'
+       + statBar("A",(Number(av)||0)/aMax*100,aCol)
+       + '<div class="av">'+fmtVal(av,M.fmt)+'</div></div>';
+  }
+  return out;
+}
+/* expected range: floor(min) - ceil(max) of the two sides in that match-up */
+function rangeTxt(a,b){
+  if(a==null||b==null||isNaN(a)||isNaN(b)) return "\u2013";
+  return Math.floor(Math.min(a,b))+" \u2013 "+Math.ceil(Math.max(a,b));
+}
+function rangeBlock(g){
+  var out='<div class="rngwrap">';
+  for(var i=0;i<RANGES.length;i++){ var R=RANGES[i];
+    var left  = rangeTxt(g.home[R.atk], g.away[R.def]);   /* Home for  */
+    var right = rangeTxt(g.away[R.atk], g.home[R.def]);   /* Away for  */
+    out+='<div class="rng"><div class="l">'+left+'</div><div class="c">'+R.label+'</div><div class="r">'+right+'</div></div>';
+  }
+  return out+'</div>';
+}
+
+/* ---------- sorting ---------- */
+var MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+function kickoffValue(f){var iso=Date.parse(f.date);if(!isNaN(iso))return iso;var m=(f.date||"").match(/(\d{1,2})\s+([A-Za-z]+).*?(\d{1,2}):(\d{2})/);if(!m)return 0;var day=+m[1],mon=(MONTHS[m[2].toLowerCase().slice(0,4)]!=null?MONTHS[m[2].toLowerCase().slice(0,4)]:MONTHS[m[2].toLowerCase().slice(0,3)])||0;return new Date(2026,mon,day,+m[3],+m[4]).getTime();}
+function overallFormDiff(f){return points(f.home.form)-points(f.away.form);}
+function venueFormDiff(f){return points(f.home.homeForm)-points(f.away.awayForm);}
+function sortKey(f,mode){switch(mode){case 'kickoff':return kickoffValue(f);case 'overallFormDiff':return overallFormDiff(f);case 'venueFormDiff':return venueFormDiff(f);case 'homeAvgG':return f.home.avgG==null?-1:f.home.avgG;case 'awayAvgG':return f.away.avgG==null?-1:f.away.avgG;case 'sumAvgG':return (f.home.avgG||0)+(f.away.avgG||0);default:return 0;}}
+function sortNote(f,mode){switch(mode){case 'overallFormDiff':{var d=overallFormDiff(f);return "Form &Delta; "+(d>0?"+":"")+d;}case 'venueFormDiff':{var d2=venueFormDiff(f);return "H/A &Delta; "+(d2>0?"+":"")+d2;}case 'homeAvgG':return "Home AVG.G "+dp2(f.home.avgG);case 'awayAvgG':return "Away AVG.G "+dp2(f.away.avgG);case 'sumAvgG':return "&Sigma; AVG.G "+dp2((f.home.avgG||0)+(f.away.avgG||0));default:return '';}}
+var SORT_MODE='kickoff', SORT_DIR='asc', ACTIVE='all';
+
+/* ---------- card ---------- */
+function cardHTML(g){
+  var b=g.bet365||{};
+  var hOP=points(g.home.form), aOP=points(g.away.form);
+  var hSP=points(g.home.homeForm), aSP=points(g.away.awayForm);
+  var note=sortNote(g,SORT_MODE);
+  var topRight=note?'<span class="sortnote">'+note+'</span>':'<span>'+(g.status||"Upcoming")+'</span>';
+  return '<div class="card">'
+    +'<div class="top"><span>'+g.date+'</span>'+topRight+'</div>'
+    +'<div class="ha"><span>HOME</span><span>AWAY</span></div>'
+    +'<div class="teams"><div class="home"><div class="tn">'+g.home.name+'</div><div class="pos">League: '+ord(g.home.pos)+'</div></div>'
+    +'<div class="v">v</div><div class="away"><div class="tn">'+g.away.name+'</div><div class="pos">League: '+ord(g.away.pos)+'</div></div></div>'
+    +'<div class="formline">'+formRow(g.home.form,g.home.goals)
+    +'<div class="ptsmid"><span class="pts">'+hOP+' pts</span> <span class="diff">'+diffTxt(hOP,aOP)+'</span> <span class="pts">'+aOP+' pts</span></div>'
+    +formRow(g.away.form,g.away.goals,true)+'</div>'
+    +'<div class="split"></div>'
+    +'<div class="subhead"><span>Home form</span><span class="r">Away form</span></div>'
+    +'<div class="formline">'+formRow(g.home.homeForm,g.home.homeGoals)
+    +'<div class="ptsmid"><span class="pts">'+hSP+' pts</span> <span class="diff">'+diffTxt(hSP,aSP)+'</span> <span class="pts">'+aSP+' pts</span></div>'
+    +formRow(g.away.awayForm,g.away.awayGoals,true)+'</div>'
+    +'<div style="margin-top:12px">'+statsBlock(g)+'</div>'
+    + rangeBlock(g)
+    +'<div class="oddwrap"><div class="odds">'
+    +'<div class="odd"><div class="l">Home</div><div class="v">'+dp2(b.homeWin)+'</div></div>'
+    +'<div class="odd"><div class="l">Draw</div><div class="v">'+dp2(b.draw)+'</div></div>'
+    +'<div class="odd"><div class="l">Away</div><div class="v">'+dp2(b.awayWin)+'</div></div></div>'
+    +'<div class="odds">'
+    +'<div class="odd"><div class="l">BTTS</div><div class="v">'+dp2(b.btts)+'</div></div>'
+    +'<div class="odd"><div class="l">Over 1.5</div><div class="v">'+dp2(b.over15)+'</div></div>'
+    +'<div class="odd"><div class="l">Over 2.5</div><div class="v">'+dp2(b.over25)+'</div></div></div></div>'
+    +'</div>';
+}
+function render(){
+  var pool=fixtures.filter(function(f){return ACTIVE==="all"||f.leagueCode===ACTIVE;});
+  var groups={}; pool.forEach(function(f){(groups[f.leagueCode]=groups[f.leagueCode]||[]).push(f);});
+  var html="";
+  LEAGUE_ORDER.forEach(function(code){
+    var list=groups[code]; if(!list||!list.length) return;
+    var sorted=list.slice().sort(function(a,b){return sortKey(a,SORT_MODE)-sortKey(b,SORT_MODE);});
+    if(SORT_DIR==='desc') sorted.reverse();
+    html+='<div class="league-head"><span class="bar"></span> '+(LEAGUE_NAMES[code]||code)+' <span class="count">&middot; '+sorted.length+' fixtures</span></div>';
+    html+='<div class="grid">'+sorted.map(cardHTML).join("")+'</div>';
+  });
+  document.getElementById("leagues").innerHTML = html || '<div style="color:var(--mut);padding:24px 2px;">No fixtures for this selection.</div>';
+}
+
+/* ---------- controls ---------- */
+var tabs=document.querySelectorAll(".tab");
+for(var i=0;i<tabs.length;i++){ tabs[i].addEventListener("click",function(){for(var j=0;j<tabs.length;j++){tabs[j].classList.remove("active");}this.classList.add("active");ACTIVE=this.getAttribute("data-league");render();}); }
+var sm=document.querySelectorAll(".smode");
+for(var s2=0;s2<sm.length;s2++){ sm[s2].addEventListener("click",function(){for(var s3=0;s3<sm.length;s3++){sm[s3].classList.remove("active");}this.classList.add("active");STAT_MODE=this.getAttribute("data-mode");render();}); }
+document.getElementById("sortSel").addEventListener("change",function(e){SORT_MODE=e.target.value;SORT_DIR=(SORT_MODE==='kickoff')?'asc':'desc';document.getElementById("dirBtn").innerHTML=SORT_DIR==='asc'?'&#9650;':'&#9660;';render();});
+document.getElementById("dirBtn").addEventListener("click",function(){SORT_DIR=SORT_DIR==='asc'?'desc':'asc';this.innerHTML=SORT_DIR==='asc'?'&#9650;':'&#9660;';render();});
+
+/* ---------- boot ---------- */
+(function(){
+  var tag=document.getElementById("srcTag"), txt=document.getElementById("srcTxt");
+  if(fixtures.length){ tag.classList.add("live"); txt.textContent=fixtures.length+" fixtures loaded"; }
+  else { txt.textContent="No fixtures — paste your table into RAWDATA"; }
+  buildIndex();
+  render();
+})();
+</script>
+</body>
+</html>
